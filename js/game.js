@@ -1,13 +1,29 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const GAME_WIDTH = 800;
-const GAME_HEIGHT = 600;
+let GAME_WIDTH, GAME_HEIGHT;
 
 const OBSTACLE_SPAWN_INTERVAL = 120; // Frames between obstacle spawns
 
-canvas.width = GAME_WIDTH;
-canvas.height = GAME_HEIGHT;
+function setCanvasSize() {
+    GAME_WIDTH = window.innerWidth;
+    GAME_HEIGHT = window.innerHeight;
+    canvas.width = GAME_WIDTH;
+    canvas.height = GAME_HEIGHT;
+}
+
+// Call setCanvasSize initially
+setCanvasSize();
+
+// Add event listener for window resize
+window.addEventListener('resize', () => {
+    setCanvasSize();
+    if (snake) {
+        // Adjust snake position if needed
+        snake.x = Math.min(snake.x, GAME_WIDTH / 4);
+        snake.y = Math.min(snake.y, GAME_HEIGHT / 2);
+    }
+});
 
 let snake, dungeon, obstacles, collectibles;
 let gameOver = false;
@@ -19,9 +35,10 @@ let timeSlowDuration = 0;
 let nearMissTimer = 0;
 const NEAR_MISS_GRACE_PERIOD = 10; // Adjust as needed
 const TIME_SLOW_FACTOR = 0.5;
-const TIME_SLOW_DURATION_INCREASE = 300; // Amount of time (in frames) added when collecting a time slow power-up
+const TIME_SLOW_DURATION_INCREASE = 300;
 
 function init() {
+    setCanvasSize(); // Ensure canvas size is set correctly
     snake = new Snake();
     dungeon = new Dungeon();
     obstacles = new Obstacles(dungeon);
