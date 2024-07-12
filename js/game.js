@@ -6,10 +6,16 @@ let GAME_WIDTH, GAME_HEIGHT;
 const OBSTACLE_SPAWN_INTERVAL = 120; // Frames between obstacle spawns
 
 function setCanvasSize() {
-    GAME_WIDTH = window.innerWidth;
-    GAME_HEIGHT = window.innerHeight;
+    GAME_WIDTH = Math.floor(window.innerWidth * 0.95);
+    GAME_HEIGHT = Math.floor(window.innerHeight * 0.95);
     canvas.width = GAME_WIDTH;
     canvas.height = GAME_HEIGHT;
+    
+    // Center the canvas
+    canvas.style.position = 'absolute';
+    canvas.style.left = '50%';
+    canvas.style.top = '50%';
+    canvas.style.transform = 'translate(-50%, -50%)';
 }
 
 // Call setCanvasSize initially
