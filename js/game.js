@@ -6,8 +6,8 @@ let GAME_WIDTH, GAME_HEIGHT;
 const OBSTACLE_SPAWN_INTERVAL = 120; // Frames between obstacle spawns
 
 function setCanvasSize() {
-    GAME_WIDTH = Math.floor(window.innerWidth * 0.95);
-    GAME_HEIGHT = Math.floor(window.innerHeight * 0.95);
+    GAME_WIDTH = Math.floor(window.innerWidth);
+    GAME_HEIGHT = Math.floor(window.innerHeight);
     canvas.width = GAME_WIDTH;
     canvas.height = GAME_HEIGHT;
     
@@ -41,10 +41,9 @@ let timeSlowDuration = 0;
 let nearMissTimer = 0;
 const NEAR_MISS_GRACE_PERIOD = 10; // Adjust as needed
 const TIME_SLOW_FACTOR = 0.5;
-const TIME_SLOW_DURATION_INCREASE = 300;
+const TIME_SLOW_DURATION_INCREASE = 300; // Amount of time (in frames) added when collecting a time slow power-up
 
 function init() {
-    setCanvasSize(); // Ensure canvas size is set correctly
     snake = new Snake();
     dungeon = new Dungeon();
     obstacles = new Obstacles(dungeon);
@@ -80,6 +79,10 @@ function update() {
         } else if (item.type === 'timeSlow') {
             timeSlowActive = true;
             timeSlowDuration += TIME_SLOW_DURATION_INCREASE;
+            // Add time slow effect
+            snake.timeSlowEffect = "+5s";
+            snake.timeSlowEffectDuration = snake.timeSlowEffectMaxDuration;
+            console.log("Time slow collected, effect set:", snake.timeSlowEffect); // Add this log
         }
         const index = collectibles.items.indexOf(item);
         collectibles.items.splice(index, 1);
@@ -87,7 +90,6 @@ function update() {
     });
 
     snake.update(dungeon, isReducingGravity, collectibleCollected);
-    snake.updatePointsEffect();
 
     // Increase score based on distance traveled
     score += dungeon.speed * deltaTime;

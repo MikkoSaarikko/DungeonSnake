@@ -23,6 +23,9 @@ class Snake {
         this.pointsEffect = null;
         this.pointsEffectDuration = 0;
         this.pointsEffectMaxDuration = 60; // 1 second at 60 fps
+        this.timeSlowEffect = null;
+        this.timeSlowEffectDuration = 0;
+        this.timeSlowEffectMaxDuration = 60; // 1 second at 60 fps
         this.initializeTail();
     }
 
@@ -73,15 +76,6 @@ class Snake {
             this.tail.push({ x: lastSegment.x - 1, y: lastSegment.y });
         }
 
-        // Collision detection with dungeon
-        const collisionPoints = dungeon.getCollisionPoints();
-        for (let point of collisionPoints) {
-            if (this.checkCollision(point.x, point.y)) {
-                this.isAlive = false;
-                break;
-            }
-        }
-
         // Prevent the snake from going off-screen vertically
         if (this.y + this.radius > GAME_HEIGHT) {
             this.y = GAME_HEIGHT - this.radius;
@@ -110,6 +104,7 @@ class Snake {
         }
 
         this.updatePointsEffect();
+        this.updateTimeSlowEffect();
     }
 
     updatePointsEffect() {
@@ -117,6 +112,17 @@ class Snake {
             this.pointsEffectDuration--;
             if (this.pointsEffectDuration <= 0) {
                 this.pointsEffect = null;
+            }
+        }
+    }
+
+    updateTimeSlowEffect() {
+        if (this.timeSlowEffect) {
+            console.log("Updating time slow effect:", this.timeSlowEffect, this.timeSlowEffectDuration);
+            this.timeSlowEffectDuration--;
+            if (this.timeSlowEffectDuration <= 0) {
+                this.timeSlowEffect = null;
+                console.log("Time slow effect ended");
             }
         }
     }
@@ -213,6 +219,20 @@ class Snake {
             const alpha = this.pointsEffectDuration / this.pointsEffectMaxDuration;
             ctx.globalAlpha = alpha;
             ctx.fillText(`+${this.pointsEffect}`, this.x, this.y - 30 - (1 - alpha) * 20);
+            ctx.restore();
+        }
+
+        // Draw time slow effect
+        if (this.timeSlowEffect) {
+            console.log("Drawing time slow effect:", this.timeSlowEffect);
+            ctx.save();
+            ctx.fillStyle = 'lightblue';
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const alpha = this.timeSlowEffectDuration / this.timeSlowEffectMaxDuration;
+            ctx.globalAlpha = alpha;
+            ctx.fillText(this.timeSlowEffect, this.x, this.y - 60 - (1 - alpha) * 20);
             ctx.restore();
         }
     }
