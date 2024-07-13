@@ -41,7 +41,42 @@ class Collectible {
       ctx.moveTo(this.x, this.y);
       ctx.lineTo(this.x, this.y - this.radius * 0.6);
       ctx.stroke();
+    } else if (this.type === "reverseGravity") {
+      // Draw background circle
+      ctx.fillStyle = "white";
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw arrows
+      const arrowWidth = this.radius * 0.4;
+      const arrowHeight = this.radius * 1.6;
+      const arrowSpacing = this.radius * 0.4;
+
+      // Green upward arrow
+      this.drawArrow(ctx, this.x - arrowSpacing / 2, this.y, arrowWidth, arrowHeight, "green", true);
+
+      // Red downward arrow
+      this.drawArrow(ctx, this.x + arrowSpacing / 2, this.y, arrowWidth, arrowHeight, "red", false);
     }
+  }
+  
+  drawArrow(ctx, x, y, width, height, color, pointingUp) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+
+    if (pointingUp) {
+      ctx.moveTo(x - width / 2, y + height / 2);
+      ctx.lineTo(x, y - height / 2);
+      ctx.lineTo(x + width / 2, y + height / 2);
+    } else {
+      ctx.moveTo(x - width / 2, y - height / 2);
+      ctx.lineTo(x, y + height / 2);
+      ctx.lineTo(x + width / 2, y - height / 2);
+    }
+
+    ctx.closePath();
+    ctx.fill();
   }
 
   update(speed) {
@@ -93,7 +128,7 @@ class Collectibles {
 
     do {
       y = Math.random() * (safeArea.bottom - safeArea.top) + safeArea.top;
-      type = Math.random() < 0.8 ? "coin" : "timeSlow";
+      type = Math.random() < 0.7 ? "coin" : (Math.random() < 0.5 ? "timeSlow" : "reverseGravity");
       attempts++;
     } while (
       this.collidesWithObstacles(x, y, obstacles) &&
