@@ -58,7 +58,6 @@ function init() {
   gameOver = false;
   score = 0;
   highScore = loadHighScore();
-  console.log("Initialized high score:", highScore);
   isReducingGravity = false;
   timeSlowActive = false;
   timeSlowDuration = 0;
@@ -129,7 +128,6 @@ function update() {
     if (score > highScore) {
       highScore = Math.floor(score);
       saveHighScore(highScore);
-      console.log('New high score achieved and saved:', highScore);
     }
   }
 }
@@ -229,9 +227,6 @@ function draw() {
         GAME_WIDTH / 2,
         GAME_HEIGHT / 2 + 150
       );
-      
-      // Debug information
-      console.log("Game Over - Score:", Math.floor(score), "High Score:", Math.floor(highScore), "New High Score:", newHighScore);
     }
   }
 
@@ -294,9 +289,3 @@ canvas.addEventListener("touchend", handleTouchEnd);
 
 init();
 gameLoop();
-
-// Debug: Check localStorage
-console.log(
-  "Initial localStorage check:",
-  localStorage.getItem("snakeCaveHighScore")
-);
