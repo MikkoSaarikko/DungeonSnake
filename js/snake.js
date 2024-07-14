@@ -125,6 +125,22 @@ class Snake {
     this.updateReverseGravityEffect();
   }
 
+  pointInPolygon(point, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i].x,
+        yi = polygon[i].y;
+      const xj = polygon[j].x,
+        yj = polygon[j].y;
+
+      const intersect =
+        yi > point.y !== yj > point.y &&
+        point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
   updateReverseGravityEffect() {
     if (this.reverseGravityActive) {
       this.reverseGravityDuration--;
@@ -338,26 +354,37 @@ class Snake {
       y: this.y + this.radius * Math.sin(this.angle),
     };
 
-    // Reduce collision radius even further
-    const collisionRadius = this.radius * 0.7;
+    // Check if the snake's head is inside the dungeon walls
+    for (let i = 0; i < segments.length - 1; i++) {
+      const segment = segments[i];
+      const nextSegment = segments[i + 1];
 
-    for (let segment of segments) {
-      // Check ceiling
-      for (let i = 0; i < segment.ceilingPoints.length - 1; i++) {
-        const p1 = segment.ceilingPoints[i];
-        const p2 = segment.ceilingPoints[i + 1];
-        if (this.lineCircleCollision(p1, p2, headCenter, collisionRadius)) {
-          return true;
-        }
-      }
+      // Create polygons for floor and ceiling
+      const floorPolygon = [
+        ...segment.floorPoints,
+        ...nextSegment.floorPoints.slice().reverse(),
+        { x: segment.floorPoints[0].x, y: GAME_HEIGHT },
+        {
+          x: nextSegment.floorPoints[nextSegment.floorPoints.length - 1].x,
+          y: GAME_HEIGHT,
+        },
+      ];
 
-      // Check floor
-      for (let i = 0; i < segment.floorPoints.length - 1; i++) {
-        const p1 = segment.floorPoints[i];
-        const p2 = segment.floorPoints[i + 1];
-        if (this.lineCircleCollision(p1, p2, headCenter, collisionRadius)) {
-          return true;
-        }
+      const ceilingPolygon = [
+        ...segment.ceilingPoints,
+        ...nextSegment.ceilingPoints.slice().reverse(),
+        { x: segment.ceilingPoints[0].x, y: 0 },
+        {
+          x: nextSegment.ceilingPoints[nextSegment.ceilingPoints.length - 1].x,
+          y: 0,
+        },
+      ];
+
+      if (
+        this.pointInPolygon(headCenter, floorPolygon) ||
+        this.pointInPolygon(headCenter, ceilingPolygon)
+      ) {
+        return true; // Collision detected
       }
     }
 
