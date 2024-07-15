@@ -16,268 +16,303 @@ let nearMissTimer = 0;
 const NEAR_MISS_GRACE_PERIOD = 10;
 const TIME_SLOW_FACTOR = 0.5;
 const TIME_SLOW_DURATION_INCREASE = 300;
+const BASE_SPEED = 120; 
+
+let lastTime = 0;
+const fixedTimeStep = 1000 / 60; // 60 fps
+let accumulator = 0;
+
+let frameCount = 0;
+let lastFpsTime = 0;
+let fps = 0;
 
 function setCanvasSize() {
-  GAME_WIDTH = Math.floor(window.innerWidth);
-  GAME_HEIGHT = Math.floor(window.innerHeight);
-  canvas.width = GAME_WIDTH;
-  canvas.height = GAME_HEIGHT;
+    GAME_WIDTH = Math.floor(window.innerWidth);
+    GAME_HEIGHT = Math.floor(window.innerHeight);
+    canvas.width = GAME_WIDTH;
+    canvas.height = GAME_HEIGHT;
 
-  canvas.style.position = "absolute";
-  canvas.style.left = "50%";
-  canvas.style.top = "50%";
-  canvas.style.transform = "translate(-50%, -50%)";
+    canvas.style.position = "absolute";
+    canvas.style.left = "50%";
+    canvas.style.top = "50%";
+    canvas.style.transform = "translate(-50%, -50%)";
 }
 
 setCanvasSize();
 
 window.addEventListener("resize", () => {
-  setCanvasSize();
-  if (snake) {
-    snake.x = Math.min(snake.x, GAME_WIDTH / 4);
-    snake.y = Math.min(snake.y, GAME_HEIGHT / 2);
-  }
+    setCanvasSize();
+    if (snake) {
+        snake.x = Math.min(snake.x, GAME_WIDTH / 4);
+        snake.y = Math.min(snake.y, GAME_HEIGHT / 2);
+    }
 });
 
 function saveHighScore(score) {
-  localStorage.setItem("snakeCaveHighScore", score);
-  console.log("Saving high score:", score);
+    localStorage.setItem("snakeCaveHighScore", score);
+    console.log("Saving high score:", score);
 }
 
 function loadHighScore() {
-  const savedScore = localStorage.getItem("snakeCaveHighScore");
-  console.log("Loaded high score from storage:", savedScore);
-  return savedScore ? parseInt(savedScore) : 0;
+    const savedScore = localStorage.getItem("snakeCaveHighScore");
+    console.log("Loaded high score from storage:", savedScore);
+    return savedScore ? parseInt(savedScore) : 0;
 }
 
 function init() {
-  snake = new Snake();
-  dungeon = new Dungeon();
-  obstacles = new Obstacles(dungeon);
-  collectibles = new Collectibles();
-  gameOver = false;
-  score = 0;
-  highScore = loadHighScore();
-  isReducingGravity = false;
-  timeSlowActive = false;
-  timeSlowDuration = 0;
+    snake = new Snake();
+    dungeon = new Dungeon();
+    obstacles = new Obstacles(dungeon);
+    collectibles = new Collectibles();
+    gameOver = false;
+    score = 0;
+    highScore = loadHighScore();
+    isReducingGravity = false;
+    timeSlowActive = false;
+    timeSlowDuration = 0;
 }
 
-function update() {
-  if (gameOver) return;
+function update(deltaTime) {
+    if (gameOver) return;
 
-  const deltaTime = timeSlowActive ? TIME_SLOW_FACTOR : 1;
+    const timeSlowFactor = timeSlowActive ? TIME_SLOW_FACTOR : 1;
+    deltaTime *= timeSlowFactor;
 
-  dungeon.update(deltaTime);
-  obstacles.update(dungeon.speed, deltaTime);
-  collectibles.update(dungeon, deltaTime, obstacles);
+    dungeon.update(deltaTime * BASE_SPEED);
+    obstacles.update(deltaTime);
+    collectibles.update(dungeon, deltaTime * BASE_SPEED, obstacles);
 
-  const collectedItems = collectibles.checkCollisions(snake);
-  let collectibleCollected = false;
-  collectedItems.forEach((item) => {
-    if (item.type === "coin") {
-      const speedMultiplier = Math.max(1, dungeon.speed / 2);
-      const scaledValue = Math.floor(item.value * speedMultiplier);
-      score += scaledValue;
-      snake.pointsEffect = scaledValue;
-      snake.pointsEffectDuration = snake.pointsEffectMaxDuration;
-    } else if (item.type === "timeSlow") {
-      timeSlowActive = true;
-      timeSlowDuration += TIME_SLOW_DURATION_INCREASE;
-      snake.timeSlowEffect = "+5s";
-      snake.timeSlowEffectDuration = snake.timeSlowEffectMaxDuration;
-    } else if (item.type === "reverseGravity") {
-      snake.reverseGravityActive = true;
-      snake.reverseGravityDuration = 300;
-      snake.reverseGravityEffect = "Reverse Gravity!";
-      snake.reverseGravityEffectDuration =
-        snake.reverseGravityEffectMaxDuration;
+    const collectedItems = collectibles.checkCollisions(snake);
+    let collectibleCollected = false;
+    collectedItems.forEach((item) => {
+        if (item.type === "coin") {
+            const speedMultiplier = Math.max(1, dungeon.speed / 2);
+            const scaledValue = Math.floor(item.value * speedMultiplier);
+            score += scaledValue;
+            snake.pointsEffect = scaledValue;
+            snake.pointsEffectDuration = snake.pointsEffectMaxDuration;
+        } else if (item.type === "timeSlow") {
+            timeSlowActive = true;
+            timeSlowDuration += TIME_SLOW_DURATION_INCREASE;
+            snake.timeSlowEffect = "+5s";
+            snake.timeSlowEffectDuration = snake.timeSlowEffectMaxDuration;
+        } else if (item.type === "reverseGravity") {
+            snake.reverseGravityActive = true;
+            snake.reverseGravityDuration = 300;
+            snake.reverseGravityEffect = "Reverse Gravity!";
+            snake.reverseGravityEffectDuration = snake.reverseGravityEffectMaxDuration;
+        }
+        const index = collectibles.items.indexOf(item);
+        collectibles.items.splice(index, 1);
+        collectibleCollected = true;
+    });
+
+    snake.update(dungeon, isReducingGravity, collectibleCollected, deltaTime);
+
+    score += dungeon.speed * deltaTime * BASE_SPEED;
+
+    if (timeSlowActive) {
+        timeSlowDuration -= 1;
+        if (timeSlowDuration <= 0) {
+            timeSlowActive = false;
+        }
     }
-    const index = collectibles.items.indexOf(item);
-    collectibles.items.splice(index, 1);
-    collectibleCollected = true;
-  });
 
-  snake.update(dungeon, isReducingGravity, collectibleCollected);
-
-  score += dungeon.speed * deltaTime;
-
-  if (timeSlowActive) {
-    timeSlowDuration -= 1;
-    if (timeSlowDuration <= 0) {
-      timeSlowActive = false;
+    if (nearMissTimer > 0) {
+        nearMissTimer--;
+    } else if (snake.checkDungeonCollision(dungeon)) {
+        if (Math.random() < 0.2) {
+            nearMissTimer = NEAR_MISS_GRACE_PERIOD;
+        } else {
+            gameOver = true;
+        }
     }
-  }
 
-  if (nearMissTimer > 0) {
-    nearMissTimer--;
-  } else if (snake.checkDungeonCollision(dungeon)) {
-    if (Math.random() < 0.2) {
-      nearMissTimer = NEAR_MISS_GRACE_PERIOD;
-    } else {
-      gameOver = true;
+    if (obstacles.checkCollision(snake)) {
+        gameOver = true;
     }
-  }
 
-  if (obstacles.checkCollision(snake)) {
-    gameOver = true;
-  }
-
-  if (!snake.isAlive || gameOver) {
-    gameOver = true;
-    if (score > highScore) {
-      highScore = Math.floor(score);
-      saveHighScore(highScore);
+    if (!snake.isAlive || gameOver) {
+        gameOver = true;
+        if (score > highScore) {
+            highScore = Math.floor(score);
+            saveHighScore(highScore);
+        }
     }
-  }
 }
 
-function draw() {
+function draw(currentTime) {
     ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
     dungeon.draw(ctx);
     obstacles.draw(ctx);
     collectibles.draw(ctx);
     snake.draw(ctx);
-  
+
     // Draw score
     ctx.fillStyle = "white";
     ctx.font = "24px Arial";
     ctx.textAlign = "left";
     ctx.fillText(`Score: ${Math.floor(score)}`, 10, 30);
     ctx.fillText(`High Score: ${Math.floor(highScore)}`, 10, 60);
-  
+
     // Draw time slow indicator
     if (timeSlowActive) {
-      ctx.fillStyle = "rgba(173, 216, 230, 0.3)"; // Light blue with opacity
-      ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-  
-      ctx.fillStyle = "navy";
-      ctx.font = "24px Arial";
-      ctx.textAlign = "right";
-      ctx.fillText(
-        `Time Slow: ${Math.ceil(timeSlowDuration / 60)}s`,
-        GAME_WIDTH - 10,
-        30
-      );
+        ctx.fillStyle = "rgba(173, 216, 230, 0.3)"; // Light blue with opacity
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+        ctx.fillStyle = "navy";
+        ctx.font = "24px Arial";
+        ctx.textAlign = "right";
+        ctx.fillText(
+            `Time Slow: ${Math.ceil(timeSlowDuration / 60)}s`,
+            GAME_WIDTH - 10,
+            30
+        );
     }
-  
+
     // Draw reverse gravity indicator
     if (snake.reverseGravityActive) {
-      ctx.fillStyle = "rgba(128, 0, 128, 0.3)"; // Light purple with opacity
-      ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-  
-      ctx.fillStyle = "purple";
-      ctx.font = "24px Arial";
-      ctx.textAlign = "right";
-      ctx.fillText(
-        `Reverse Gravity: ${Math.ceil(snake.reverseGravityDuration / 60)}s`,
-        GAME_WIDTH - 10,
-        60
-      );
+        ctx.fillStyle = "rgba(128, 0, 128, 0.3)"; // Light purple with opacity
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+        ctx.fillStyle = "purple";
+        ctx.font = "24px Arial";
+        ctx.textAlign = "right";
+        ctx.fillText(
+            `Reverse Gravity: ${Math.ceil(snake.reverseGravityDuration / 60)}s`,
+            GAME_WIDTH - 10,
+            60
+        );
     }
-  
+
     if (gameOver) {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-      ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-  
-      ctx.fillStyle = "white";
-      ctx.font = "48px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText("Game Over", GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50);
-  
-      ctx.font = "24px Arial";
-      ctx.fillText(
-        `Final Score: ${Math.floor(score)}`,
-        GAME_WIDTH / 2,
-        GAME_HEIGHT / 2 + 10
-      );
-  
-      const newHighScore = score > highScore;
-      
-      if (newHighScore) {
-        ctx.fillStyle = "gold";
-        ctx.font = "bold 36px Arial";
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+        ctx.fillStyle = "white";
+        ctx.font = "48px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("Game Over", GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50);
+
+        ctx.font = "24px Arial";
         ctx.fillText(
-          "New High Score!",
-          GAME_WIDTH / 2,
-          GAME_HEIGHT / 2 + 60
+            `Final Score: ${Math.floor(score)}`,
+            GAME_WIDTH / 2,
+            GAME_HEIGHT / 2 + 10
         );
-        
-        const pulseFactor = Math.sin(Date.now() / 200) * 0.1 + 1;
-        ctx.font = `bold ${36 * pulseFactor}px Arial`;
-        ctx.fillText(
-          `${Math.floor(score)}`,
-          GAME_WIDTH / 2,
-          GAME_HEIGHT / 2 + 110
-        );
-      } else {
+
+        const newHighScore = score > highScore;
+
+        if (newHighScore) {
+            ctx.fillStyle = "gold";
+            ctx.font = "bold 36px Arial";
+            ctx.fillText(
+                "New High Score!",
+                GAME_WIDTH / 2,
+                GAME_HEIGHT / 2 + 60
+            );
+
+            const pulseFactor = Math.sin(Date.now() / 200) * 0.1 + 1;
+            ctx.font = `bold ${36 * pulseFactor}px Arial`;
+            ctx.fillText(
+                `${Math.floor(score)}`,
+                GAME_WIDTH / 2,
+                GAME_HEIGHT / 2 + 110
+            );
+        } else {
+            ctx.fillStyle = "white";
+            ctx.font = "24px Arial";
+            ctx.fillText(
+                `High Score: ${Math.floor(highScore)}`,
+                GAME_WIDTH / 2,
+                GAME_HEIGHT / 2 + 60
+            );
+        }
+
         ctx.fillStyle = "white";
         ctx.font = "24px Arial";
         ctx.fillText(
-          `High Score: ${Math.floor(highScore)}`,
-          GAME_WIDTH / 2,
-          GAME_HEIGHT / 2 + 60
+            "Press Space or Click to Restart",
+            GAME_WIDTH / 2,
+            GAME_HEIGHT / 2 + 150
         );
-      }
-  
-      ctx.fillStyle = "white";
-      ctx.font = "24px Arial";
-      ctx.fillText(
-        "Press Space or Click to Restart",
-        GAME_WIDTH / 2,
-        GAME_HEIGHT / 2 + 150
-      );
     }
-  }
 
-function gameLoop() {
-  update();
-  draw();
-  requestAnimationFrame(gameLoop);
+    // Draw FPS counter
+    frameCount++;
+    if (currentTime > lastFpsTime + 1000) {
+        fps = frameCount;
+        frameCount = 0;
+        lastFpsTime = currentTime;
+    }
+
+    ctx.fillStyle = "white";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(`FPS: ${fps}`, 10, GAME_HEIGHT - 10);
+}
+
+function gameLoop(currentTime) {
+    if (!lastTime) lastTime = currentTime;
+    let deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
+    lastTime = currentTime;
+
+    // Limit delta time to prevent large jumps
+    if (deltaTime > 0.1) deltaTime = 0.1;
+
+    accumulator += deltaTime;
+
+    while (accumulator >= fixedTimeStep / 1000) {
+        update(fixedTimeStep / 1000);
+        accumulator -= fixedTimeStep / 1000;
+    }
+
+    draw(currentTime);
+    requestAnimationFrame(gameLoop);
 }
 
 function handleKeyDown(e) {
-  if (e.code === "Space") {
-    if (gameOver) {
-      init();
-    } else {
-      isReducingGravity = true;
+    if (e.code === "Space") {
+        if (gameOver) {
+            init();
+        } else {
+            isReducingGravity = true;
+        }
     }
-  }
 }
 
 function handleKeyUp(e) {
-  if (e.code === "Space") {
-    isReducingGravity = false;
-  }
+    if (e.code === "Space") {
+        isReducingGravity = false;
+    }
 }
 
 function handleMouseDown(e) {
-  e.preventDefault();
-  if (gameOver) {
-    init();
-  } else {
-    isReducingGravity = true;
-  }
+    e.preventDefault();
+    if (gameOver) {
+        init();
+    } else {
+        isReducingGravity = true;
+    }
 }
 
 function handleMouseUp(e) {
-  e.preventDefault();
-  isReducingGravity = false;
+    e.preventDefault();
+    isReducingGravity = false;
 }
 
 function handleTouchStart(e) {
-  e.preventDefault();
-  if (gameOver) {
-    init();
-  } else {
-    isReducingGravity = true;
-  }
+    e.preventDefault();
+    if (gameOver) {
+        init();
+    } else {
+        isReducingGravity = true;
+    }
 }
 
 function handleTouchEnd(e) {
-  e.preventDefault();
-  isReducingGravity = false;
+    e.preventDefault();
+    isReducingGravity = false;
 }
 
 document.addEventListener("keydown", handleKeyDown);
@@ -288,4 +323,4 @@ canvas.addEventListener("touchstart", handleTouchStart);
 canvas.addEventListener("touchend", handleTouchEnd);
 
 init();
-gameLoop();
+requestAnimationFrame(gameLoop);

@@ -1,6 +1,6 @@
 class Snake {
   constructor() {
-    this.x = GAME_WIDTH / 4;
+    this.x = GAME_WIDTH * 0.25; // Fixed at 25% of the screen width
     this.y = GAME_HEIGHT / 2;
     this.radius = 10;
     this.velocity = 0;
@@ -10,7 +10,6 @@ class Snake {
     this.minGravity = -0.04;
     this.gravityChangeRate = 0.02;
     this.isAlive = true;
-    this.tail = [];
     this.hueOffset = 0;
     this.hueSpeed = 0.1; // Speed of color change
     this.headHue = 0;
@@ -28,16 +27,15 @@ class Snake {
     this.reverseGravityEffect = null;
     this.reverseGravityEffectDuration = 0;
     this.reverseGravityEffectMaxDuration = 60; // 1 second at 60 fps
-    this.initializeTail();
-  }
-
-  initializeTail() {
-    for (let x = this.x; x >= 0; x -= 1) {
-      this.tail.push({ x, y: this.y });
+    this.tailSegments = [];
+    this.tailLength = 75; // Increased tail length
+    this.tailSpacing = 5; // Decreased spacing between segments
+    for (let i = 0; i < this.tailLength; i++) {
+      this.tailSegments.push({ x: this.x - i * this.tailSpacing, y: this.y });
     }
   }
 
-  update(dungeon, isReducingGravity, collectibleCollected) {
+  update(dungeon, isReducingGravity, collectibleCollected, deltaTime) {
     if (!this.isAlive) return;
 
     // Update gravity
@@ -45,30 +43,30 @@ class Snake {
       if (isReducingGravity) {
         this.gravity = Math.min(
           this.maxGravity,
-          this.gravity + this.gravityChangeRate
+          this.gravity + this.gravityChangeRate * deltaTime * BASE_SPEED
         );
       } else {
         this.gravity = Math.max(
           this.minGravity,
-          this.gravity - this.gravityChangeRate
+          this.gravity - this.gravityChangeRate * deltaTime * BASE_SPEED
         );
       }
     } else {
       if (isReducingGravity) {
         this.gravity = Math.max(
           this.minGravity,
-          this.gravity - this.gravityChangeRate
+          this.gravity - this.gravityChangeRate * deltaTime * BASE_SPEED
         );
       } else {
         this.gravity = Math.min(
           this.maxGravity,
-          this.gravity + this.gravityChangeRate
+          this.gravity + this.gravityChangeRate * deltaTime * BASE_SPEED
         );
       }
     }
 
     // Apply gravity
-    this.velocity += this.gravity;
+    this.velocity += this.gravity * deltaTime * BASE_SPEED;
 
     // Limit maximum velocity
     const maxVelocity = 6;
@@ -77,30 +75,46 @@ class Snake {
       Math.min(maxVelocity, this.velocity)
     );
 
-    this.y += this.velocity;
+    // Update Y position only
+    this.y += this.velocity * deltaTime * BASE_SPEED;
 
     // Update target angle based on velocity
     this.targetAngle = Math.atan2(this.velocity, dungeon.speed);
 
     // Smoothly turn towards target angle
     const angleDiff = this.targetAngle - this.angle;
-    this.angle += angleDiff * this.turnSpeed;
+    this.angle += angleDiff * this.turnSpeed * deltaTime * BASE_SPEED;
 
     // Update tail
-    this.tail.unshift({ x: this.x, y: this.y });
+    let prevX = this.x;
+    let prevY = this.y;
+    for (let segment of this.tailSegments) {
+      const tempX = segment.x;
+      const tempY = segment.y;
+      segment.x = prevX;
+      segment.y = prevY;
+      prevX = tempX;
+      prevY = tempY;
+    }
 
-    // Move tail with dungeon and trim excess
-    this.tail = this.tail
-      .map((segment) => ({
-        x: segment.x - dungeon.speed,
-        y: segment.y,
-      }))
-      .filter((segment) => segment.x >= -this.radius);
+    // Move tail segments with the dungeon
+    for (let segment of this.tailSegments) {
+      segment.x -= dungeon.speed * deltaTime * BASE_SPEED;
+    }
 
-    // Ensure tail reaches left edge
-    while (this.tail[this.tail.length - 1].x > -this.radius) {
-      const lastSegment = this.tail[this.tail.length - 1];
-      this.tail.push({ x: lastSegment.x - 1, y: lastSegment.y });
+    // Remove tail segments that are too far behind
+    const minTailX = this.x - GAME_WIDTH * 0.25; // Increased tail visibility
+    this.tailSegments = this.tailSegments.filter(
+      (segment) => segment.x > minTailX
+    );
+
+    // Add new tail segments if needed
+    while (this.tailSegments.length < this.tailLength) {
+      const lastSegment = this.tailSegments[this.tailSegments.length - 1];
+      this.tailSegments.push({
+        x: lastSegment.x - this.tailSpacing,
+        y: lastSegment.y,
+      });
     }
 
     // Prevent the snake from going off-screen vertically
@@ -117,33 +131,18 @@ class Snake {
     }
 
     // Update hue offset for color change
-    this.hueOffset = (this.hueOffset + this.hueSpeed) % 360;
+    this.hueOffset =
+      (this.hueOffset + this.hueSpeed * deltaTime * BASE_SPEED) % 360;
     this.headHue = this.hueOffset;
 
-    this.updatePointsEffect();
-    this.updateTimeSlowEffect();
-    this.updateReverseGravityEffect();
+    this.updatePointsEffect(deltaTime);
+    this.updateTimeSlowEffect(deltaTime);
+    this.updateReverseGravityEffect(deltaTime);
   }
 
-  pointInPolygon(point, polygon) {
-    let inside = false;
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      const xi = polygon[i].x,
-        yi = polygon[i].y;
-      const xj = polygon[j].x,
-        yj = polygon[j].y;
-
-      const intersect =
-        yi > point.y !== yj > point.y &&
-        point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
-      if (intersect) inside = !inside;
-    }
-    return inside;
-  }
-
-  updateReverseGravityEffect() {
+  updateReverseGravityEffect(deltaTime) {
     if (this.reverseGravityActive) {
-      this.reverseGravityDuration--;
+      this.reverseGravityDuration -= deltaTime * BASE_SPEED;
       if (this.reverseGravityDuration <= 0) {
         this.reverseGravityActive = false;
         this.reverseGravityEffect = null;
@@ -151,77 +150,69 @@ class Snake {
     }
 
     if (this.reverseGravityEffect) {
-      this.reverseGravityEffectDuration--;
+      this.reverseGravityEffectDuration -= deltaTime * BASE_SPEED;
       if (this.reverseGravityEffectDuration <= 0) {
         this.reverseGravityEffect = null;
       }
     }
   }
 
-  updatePointsEffect() {
+  updatePointsEffect(deltaTime) {
     if (this.pointsEffect) {
-      this.pointsEffectDuration--;
+      this.pointsEffectDuration -= deltaTime * BASE_SPEED;
       if (this.pointsEffectDuration <= 0) {
         this.pointsEffect = null;
       }
     }
   }
 
-  updateTimeSlowEffect() {
+  updateTimeSlowEffect(deltaTime) {
     if (this.timeSlowEffect) {
-      console.log(
-        "Updating time slow effect:",
-        this.timeSlowEffect,
-        this.timeSlowEffectDuration
-      );
-      this.timeSlowEffectDuration--;
+      this.timeSlowEffectDuration -= deltaTime * BASE_SPEED;
       if (this.timeSlowEffectDuration <= 0) {
         this.timeSlowEffect = null;
-        console.log("Time slow effect ended");
       }
     }
   }
 
   draw(ctx) {
-    const headLength = this.radius * 4;
-    const headWidth = this.radius * 2;
-    const headOffset = this.radius;
-
     // Draw tail
     ctx.lineWidth = this.radius * 2;
     ctx.lineCap = "round";
-
+    ctx.lineJoin = "round";
     ctx.beginPath();
-    let started = false;
-    for (let i = this.tail.length - 1; i >= 0; i--) {
-      const segment = this.tail[i];
-      if (segment.x <= GAME_WIDTH) {
-        if (!started) {
-          ctx.moveTo(segment.x, segment.y);
-          started = true;
-        } else {
-          ctx.lineTo(segment.x, segment.y);
-        }
-      }
+    ctx.moveTo(this.x, this.y);
+
+    // Use quadratic curves to smooth out the tail
+    for (let i = 0; i < this.tailSegments.length - 1; i += 2) {
+      const segment = this.tailSegments[i];
+      const nextSegment = this.tailSegments[i + 1] || segment;
+      const midX = (segment.x + nextSegment.x) / 2;
+      const midY = (segment.y + nextSegment.y) / 2;
+      ctx.quadraticCurveTo(segment.x, segment.y, midX, midY);
     }
 
     // Create gradient for tail
     const tailGradient = ctx.createLinearGradient(
-      this.tail[0].x,
-      this.tail[0].y,
-      this.tail[this.tail.length - 1].x,
-      this.tail[this.tail.length - 1].y
+      this.x,
+      this.y,
+      this.tailSegments[this.tailSegments.length - 1].x,
+      this.tailSegments[this.tailSegments.length - 1].y
     );
     tailGradient.addColorStop(0, `hsl(${this.headHue}, 100%, 50%)`);
     tailGradient.addColorStop(
       1,
-      `hsl(${(this.headHue + 180) % 360}, 100%, 50%)`
+      `hsla(${(this.headHue + 180) % 360}, 100%, 50%, 0.1)`
     );
 
     ctx.strokeStyle = tailGradient;
     ctx.stroke();
 
     // Draw head
+    const headLength = this.radius * 4;
+    const headWidth = this.radius * 2;
+    const headOffset = this.radius;
+
     const headCenter = {
       x: this.x + headOffset * Math.cos(this.angle),
       y: this.y + headOffset * Math.sin(this.angle),
@@ -299,7 +290,6 @@ class Snake {
 
     // Draw time slow effect
     if (this.timeSlowEffect) {
-      console.log("Drawing time slow effect:", this.timeSlowEffect);
       ctx.save();
       ctx.fillStyle = "lightblue";
       ctx.font = "24px Arial";
@@ -391,35 +381,19 @@ class Snake {
     return false;
   }
 
-  lineCircleCollision(p1, p2, circleCenter, radius) {
-    const lineVector = { x: p2.x - p1.x, y: p2.y - p1.y };
-    const circleToLineStart = {
-      x: circleCenter.x - p1.x,
-      y: circleCenter.y - p1.y,
-    };
+  pointInPolygon(point, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i].x,
+        yi = polygon[i].y;
+      const xj = polygon[j].x,
+        yj = polygon[j].y;
 
-    const lineLength = Math.sqrt(lineVector.x ** 2 + lineVector.y ** 2);
-    const unitLineVector = {
-      x: lineVector.x / lineLength,
-      y: lineVector.y / lineLength,
-    };
-
-    const dotProduct =
-      circleToLineStart.x * unitLineVector.x +
-      circleToLineStart.y * unitLineVector.y;
-    const closestPoint = {
-      x:
-        p1.x + unitLineVector.x * Math.max(0, Math.min(dotProduct, lineLength)),
-      y:
-        p1.y + unitLineVector.y * Math.max(0, Math.min(dotProduct, lineLength)),
-    };
-
-    const distance = Math.sqrt(
-      (circleCenter.x - closestPoint.x) ** 2 +
-        (circleCenter.y - closestPoint.y) ** 2
-    );
-
-    // Add a small buffer to make it even more forgiving
-    return distance < radius + 2;
+      const intersect =
+        yi > point.y !== yj > point.y &&
+        point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
+      if (intersect) inside = !inside;
+    }
+    return inside;
   }
 }

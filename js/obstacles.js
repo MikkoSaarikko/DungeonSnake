@@ -4,8 +4,7 @@ class Obstacle {
         this.y = y;
         this.size = Math.random() * 30 + 20; // Random size between 20 and 50
         this.points = this.generateRockPoints();
-        this.baseColor = this.generateRockColor();
-        this.colorVariations = this.generateColorVariations();
+        this.color = this.generateRockColor();
     }
 
     generateRockPoints() {
@@ -24,54 +23,20 @@ class Obstacle {
     }
 
     generateRockColor() {
-        // Generate a base gray color
         const grayValue = Math.floor(Math.random() * 60 + 100); // 100-160
-        // Add a slight brown tint
-        const brownTint = Math.floor(Math.random() * 20); // 0-20
-        return {
-            r: grayValue + brownTint,
-            g: grayValue + Math.floor(brownTint / 2),
-            b: grayValue
-        };
+        return `rgb(${grayValue}, ${grayValue}, ${grayValue})`;
     }
 
-    generateColorVariations() {
-        const variations = [];
-        const numVariations = 3;
-        for (let i = 0; i < numVariations; i++) {
-            const variationAmount = Math.random() * 30 - 15; // -15 to 15
-            variations.push({
-                offset: Math.random(),
-                color: {
-                    r: this.baseColor.r + variationAmount + Math.random() * 10,
-                    g: this.baseColor.g + variationAmount,
-                    b: this.baseColor.b + variationAmount - Math.random() * 10
-                }
-            });
-        }
-        return variations;
-    }
-
-    update(speed, deltaTime) {
-        this.x -= speed * deltaTime;
+    update(dungeon, deltaTime) {
+        this.x -= dungeon.speed * deltaTime * BASE_SPEED;
     }
 
     draw(ctx) {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Create gradient
-        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size / 2);
-        gradient.addColorStop(0, `rgb(${this.baseColor.r}, ${this.baseColor.g}, ${this.baseColor.b})`);
-        for (let variation of this.colorVariations) {
-            gradient.addColorStop(
-                variation.offset, 
-                `rgb(${variation.color.r}, ${variation.color.g}, ${variation.color.b})`
-            );
-        }
-
         // Draw main rock shape
-        ctx.fillStyle = gradient;
+        ctx.fillStyle = this.color;
         ctx.beginPath();
         ctx.moveTo(this.points[0].x, this.points[0].y);
         for (let i = 1; i < this.points.length; i++) {
@@ -86,13 +51,13 @@ class Obstacle {
         ctx.stroke();
 
         // Add highlight
-        const highlightGradient = ctx.createRadialGradient(
+        const gradient = ctx.createRadialGradient(
             -this.size / 4, -this.size / 4, 0,
             -this.size / 4, -this.size / 4, this.size / 2
         );
-        highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
-        highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        ctx.fillStyle = highlightGradient;
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = gradient;
         ctx.fill();
 
         ctx.restore();
@@ -126,26 +91,28 @@ class Obstacles {
         this.dungeon = dungeon;
         this.obstacles = [];
         this.spawnTimer = 0;
+        this.minSpawnInterval = 60; // Minimum frames between spawns
+        this.maxSpawnInterval = 120; // Maximum frames between spawns
         this.nextSpawnInterval = this.getRandomSpawnInterval();
     }
 
     getRandomSpawnInterval() {
-        return Math.random() * 100 + 50; // Random interval between 50 and 150 frames
+        return Math.random() * (this.maxSpawnInterval - this.minSpawnInterval) + this.minSpawnInterval;
     }
 
-    update(speed, deltaTime) {
+    update(deltaTime) {
         // Move existing obstacles
         for (let obstacle of this.obstacles) {
-            obstacle.update(speed, deltaTime);
+            obstacle.update(this.dungeon, deltaTime);
         }
 
         // Remove off-screen obstacles
         this.obstacles = this.obstacles.filter(obstacle => 
-            obstacle.x + obstacle.size > 0
+            obstacle.x + obstacle.size / 2 > 0
         );
 
         // Spawn new obstacles
-        this.spawnTimer += deltaTime;
+        this.spawnTimer += deltaTime * BASE_SPEED;
         if (this.spawnTimer >= this.nextSpawnInterval) {
             this.spawnObstacle();
             this.spawnTimer = 0;
@@ -160,7 +127,7 @@ class Obstacles {
     }
 
     spawnObstacle() {
-        const x = GAME_WIDTH;
+        const x = GAME_WIDTH + 50; // Spawn obstacles slightly off-screen to the right
         
         // Find the rightmost segment of the dungeon
         const rightmostSegment = this.dungeon.segments[this.dungeon.segments.length - 1];
@@ -170,8 +137,8 @@ class Obstacles {
         const ceilingY = rightmostSegment.ceilingPoints[rightmostSegment.ceilingPoints.length - 1].y;
         
         // Calculate the safe area for spawning
-        const safeAreaTop = ceilingY + 30; // Add some padding from the ceiling
-        const safeAreaBottom = floorY - 30; // Add some padding from the floor
+        const safeAreaTop = ceilingY + 50; // Increased padding from the ceiling
+        const safeAreaBottom = floorY - 50; // Increased padding from the floor
         
         // Generate a random Y position within the safe area
         const y = Math.random() * (safeAreaBottom - safeAreaTop) + safeAreaTop;

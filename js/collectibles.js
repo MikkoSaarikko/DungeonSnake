@@ -60,7 +60,7 @@ class Collectible {
       this.drawArrow(ctx, this.x + arrowSpacing / 2, this.y, arrowWidth, arrowHeight, "red", false);
     }
   }
-  
+
   drawArrow(ctx, x, y, width, height, color, pointingUp) {
     ctx.fillStyle = color;
     ctx.beginPath();
@@ -95,9 +95,9 @@ class Collectibles {
 
     // Move collectibles
     this.items.forEach((item) => {
-      item.update(dungeon.speed * deltaTime);
+        item.update(dungeon.speed * deltaTime);
     });
-
+    
     // Occasionally add new collectibles
     if (Math.random() < 0.02 * deltaTime) {
       this.spawnCollectible(dungeon, obstacles);

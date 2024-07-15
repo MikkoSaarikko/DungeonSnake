@@ -6,7 +6,8 @@ class Dungeon {
         this.speed = 2;
         this.difficulty = 1;
         this.curvePoints = 5;  // Number of points to create for each curve
-        
+        this.totalDistance = 0;
+        this.initialDistance = 0;        
         // Initialize the first set of segments
         for (let x = 0; x < GAME_WIDTH + this.segmentWidth; x += this.segmentWidth) {
             this.addSegment(x);
@@ -74,6 +75,9 @@ class Dungeon {
         // Increase difficulty over time
         this.difficulty += 0.001 * deltaTime;
         this.speed = 2 + this.difficulty * 0.5;
+
+        this.totalDistance += this.speed * deltaTime * BASE_SPEED;
+ 
     }
 
     draw(ctx) {
