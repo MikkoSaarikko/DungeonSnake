@@ -141,7 +141,7 @@ function update(deltaTime) {
     }
 }
 
-function draw(currentTime) {
+function draw(currentTime, alpha) {
     ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
     dungeon.draw(ctx);
     obstacles.draw(ctx);
@@ -254,20 +254,31 @@ function draw(currentTime) {
 
 function gameLoop(currentTime) {
     if (!lastTime) lastTime = currentTime;
-    let deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
+    let deltaTime = currentTime - lastTime;
     lastTime = currentTime;
 
+    // FPS calculation
+    frameCount++;
+    if (currentTime > lastFpsTime + 1000) {
+        fps = frameCount;
+        frameCount = 0;
+        lastFpsTime = currentTime;
+    }
+
     // Limit delta time to prevent large jumps
-    if (deltaTime > 0.1) deltaTime = 0.1;
+    if (deltaTime > 100) deltaTime = 100;
 
     accumulator += deltaTime;
 
-    while (accumulator >= fixedTimeStep / 1000) {
-        update(fixedTimeStep / 1000);
-        accumulator -= fixedTimeStep / 1000;
+    while (accumulator >= fixedTimeStep) {
+        update(fixedTimeStep / 1000); // Convert to seconds for update
+        accumulator -= fixedTimeStep;
     }
 
-    draw(currentTime);
+    // Interpolate for smoother rendering
+    const alpha = accumulator / fixedTimeStep;
+    draw(currentTime, alpha);
+
     requestAnimationFrame(gameLoop);
 }
 
