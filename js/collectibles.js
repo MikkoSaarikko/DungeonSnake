@@ -42,39 +42,47 @@ class Collectible {
       ctx.lineTo(this.x, this.y - this.radius * 0.6);
       ctx.stroke();
     } else if (this.type === "reverseGravity") {
-      // Draw background circle
-      ctx.fillStyle = "white";
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Draw arrows
-      const arrowWidth = this.radius * 0.4;
-      const arrowHeight = this.radius * 1.6;
-      const arrowSpacing = this.radius * 0.4;
-
-      // Green upward arrow
-      this.drawArrow(ctx, this.x - arrowSpacing / 2, this.y, arrowWidth, arrowHeight, "green", true);
-
-      // Red downward arrow
-      this.drawArrow(ctx, this.x + arrowSpacing / 2, this.y, arrowWidth, arrowHeight, "red", false);
+      const arrowHeight = this.radius * 2.2;  // Overall height
+      const arrowWidth = this.radius * 1.0;   // Increased width for wider arrowhead
+      const arrowHeadSize = this.radius * 1.5; // Shorter arrowhead
+      const arrowSpacing = this.radius * 1.2;  // Space between arrows
+  
+      // Draw upward arrow (green)
+      this.drawArrow(ctx, this.x - arrowSpacing / 2, this.y, arrowWidth, arrowHeight, "green", true, arrowHeadSize);
+  
+      // Draw downward arrow (red)
+      this.drawArrow(ctx, this.x + arrowSpacing / 2, this.y, arrowWidth, arrowHeight, "red", false, arrowHeadSize);
+  
     }
   }
 
-  drawArrow(ctx, x, y, width, height, color, pointingUp) {
+  drawArrow(ctx, x, y, width, height, color, pointingUp, headSize) {
+    ctx.strokeStyle = color;
     ctx.fillStyle = color;
+    ctx.lineWidth = 2;
+  
+    // Calculate arrow points
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+    const lineEndY = pointingUp ? y + halfHeight - headSize : y - halfHeight + headSize;
+  
+    // Draw the line
     ctx.beginPath();
-
+    ctx.moveTo(x, pointingUp ? y + halfHeight : y - halfHeight);
+    ctx.lineTo(x, lineEndY);
+    ctx.stroke();
+  
+    // Draw the arrowhead
+    ctx.beginPath();
     if (pointingUp) {
-      ctx.moveTo(x - width / 2, y + height / 2);
-      ctx.lineTo(x, y - height / 2);
-      ctx.lineTo(x + width / 2, y + height / 2);
+      ctx.moveTo(x - halfWidth, lineEndY);
+      ctx.lineTo(x, y - halfHeight);
+      ctx.lineTo(x + halfWidth, lineEndY);
     } else {
-      ctx.moveTo(x - width / 2, y - height / 2);
-      ctx.lineTo(x, y + height / 2);
-      ctx.lineTo(x + width / 2, y - height / 2);
+      ctx.moveTo(x - halfWidth, lineEndY);
+      ctx.lineTo(x, y + halfHeight);
+      ctx.lineTo(x + halfWidth, lineEndY);
     }
-
     ctx.closePath();
     ctx.fill();
   }
@@ -95,9 +103,9 @@ class Collectibles {
 
     // Move collectibles
     this.items.forEach((item) => {
-        item.update(dungeon.speed * deltaTime);
+      item.update(dungeon.speed * deltaTime);
     });
-    
+
     // Occasionally add new collectibles
     if (Math.random() < 0.02 * deltaTime) {
       this.spawnCollectible(dungeon, obstacles);
@@ -128,7 +136,12 @@ class Collectibles {
 
     do {
       y = Math.random() * (safeArea.bottom - safeArea.top) + safeArea.top;
-      type = Math.random() < 0.7 ? "coin" : (Math.random() < 0.5 ? "timeSlow" : "reverseGravity");
+      type =
+        Math.random() < 0.7
+          ? "coin"
+          : Math.random() < 0.5
+          ? "timeSlow"
+          : "reverseGravity";
       attempts++;
     } while (
       this.collidesWithObstacles(x, y, obstacles) &&
