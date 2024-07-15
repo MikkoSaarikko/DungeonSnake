@@ -18,9 +18,9 @@ const TIME_SLOW_FACTOR = 0.5;
 const TIME_SLOW_DURATION_INCREASE = 300;
 const BASE_SPEED = 120; 
 
-let lastTime = 0;
-const fixedTimeStep = 1000 / 60; // 60 fps
-let accumulator = 0;
+const FRAME_RATE = 60;
+const FRAME_TIME = 1000 / FRAME_RATE;
+let lastFrameTime = 0;
 
 let frameCount = 0;
 let lastFpsTime = 0;
@@ -76,11 +76,11 @@ function update(deltaTime) {
     if (gameOver) return;
 
     const timeSlowFactor = timeSlowActive ? TIME_SLOW_FACTOR : 1;
-    deltaTime *= timeSlowFactor;
+    const fixedDeltaTime = (1 / FRAME_RATE) * timeSlowFactor;
 
-    dungeon.update(deltaTime * BASE_SPEED);
-    obstacles.update(deltaTime);
-    collectibles.update(dungeon, deltaTime * BASE_SPEED, obstacles);
+    dungeon.update(fixedDeltaTime * BASE_SPEED);
+    obstacles.update(fixedDeltaTime);
+    collectibles.update(dungeon, fixedDeltaTime * BASE_SPEED, obstacles);
 
     const collectedItems = collectibles.checkCollisions(snake);
     let collectibleCollected = false;
@@ -107,9 +107,9 @@ function update(deltaTime) {
         collectibleCollected = true;
     });
 
-    snake.update(dungeon, isReducingGravity, collectibleCollected, deltaTime);
+    snake.update(dungeon, isReducingGravity, collectibleCollected, fixedDeltaTime);
 
-    score += dungeon.speed * deltaTime * BASE_SPEED;
+    score += dungeon.speed * fixedDeltaTime * BASE_SPEED;
 
     if (timeSlowActive) {
         timeSlowDuration -= 1;
@@ -141,7 +141,7 @@ function update(deltaTime) {
     }
 }
 
-function draw(currentTime, alpha) {
+function draw(currentTime) {
     ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
     dungeon.draw(ctx);
     obstacles.draw(ctx);
@@ -239,47 +239,41 @@ function draw(currentTime, alpha) {
     }
 
     // Draw FPS counter
-    frameCount++;
-    if (currentTime > lastFpsTime + 1000) {
-        fps = frameCount;
-        frameCount = 0;
-        lastFpsTime = currentTime;
-    }
-
     ctx.fillStyle = "white";
     ctx.font = "14px Arial";
     ctx.textAlign = "left";
     ctx.fillText(`FPS: ${fps}`, 10, GAME_HEIGHT - 10);
 }
 
-function gameLoop(currentTime) {
-    if (!lastTime) lastTime = currentTime;
-    let deltaTime = currentTime - lastTime;
-    lastTime = currentTime;
-
-    // FPS calculation
+function updateFPSCounter(currentTime) {
     frameCount++;
     if (currentTime > lastFpsTime + 1000) {
         fps = frameCount;
         frameCount = 0;
         lastFpsTime = currentTime;
     }
+}
 
-    // Limit delta time to prevent large jumps
-    if (deltaTime > 100) deltaTime = 100;
-
-    accumulator += deltaTime;
-
-    while (accumulator >= fixedTimeStep) {
-        update(fixedTimeStep / 1000); // Convert to seconds for update
-        accumulator -= fixedTimeStep;
-    }
-
-    // Interpolate for smoother rendering
-    const alpha = accumulator / fixedTimeStep;
-    draw(currentTime, alpha);
-
+function gameLoop(currentTime) {
     requestAnimationFrame(gameLoop);
+
+    // Calculate time since last frame
+    const deltaTime = currentTime - lastFrameTime;
+
+    // If enough time has passed, update and draw
+    if (deltaTime >= FRAME_TIME) {
+        // Update game state
+        update(FRAME_TIME / 1000); // Convert to seconds for update
+
+        // Draw the game
+        draw(currentTime);
+
+        // Update last frame time, rounding down to the nearest FRAME_TIME
+        lastFrameTime = currentTime - (deltaTime % FRAME_TIME);
+
+        // Update FPS counter
+        updateFPSCounter(currentTime);
+    }
 }
 
 function handleKeyDown(e) {
@@ -334,4 +328,5 @@ canvas.addEventListener("touchstart", handleTouchStart);
 canvas.addEventListener("touchend", handleTouchEnd);
 
 init();
+lastFrameTime = performance.now();
 requestAnimationFrame(gameLoop);
